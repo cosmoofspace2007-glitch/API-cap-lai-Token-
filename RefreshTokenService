@@ -1,0 +1,60 @@
+@Service
+@RequiredArgsConstructor
+public class RefreshTokenService {
+
+    private final RefreshTokenRepository refreshTokenRepository;
+
+    private final UserRepository userRepository;
+
+    @Value("${app.jwt.refresh-token-expiration}")
+    private long refreshExpiration;
+
+    public RefreshToken createRefreshToken(Long userId){
+
+        User user = userRepository.findById(userId)
+                .orElseThrow();
+
+        RefreshToken refreshToken = RefreshToken.builder()
+                .token(UUID.randomUUID().toString())
+                .expiryDate(Instant.now().plusMillis(refreshExpiration))
+                .user(user)
+                .build();
+
+        return refreshTokenRepository.save(refreshToken);
+    }
+
+    public RefreshToken verifyExpiration(String token){
+
+        RefreshToken refreshToken =
+                refreshTokenRepository.findByToken(token)
+                        .orElseThrow(() -> new RuntimeException("Refresh Token không tồn tại"));
+
+        if(refreshToken.getExpiryDate().isBefore(Instant.now())){
+
+            refreshTokenRepository.delete(refreshToken);
+
+            throw new RuntimeException("Refresh Token đã hết hạn");
+        }
+
+        return refreshToken;
+    }
+
+    @Transactional
+    public RefreshToken rotateToken(String token){
+
+        RefreshToken oldToken = verifyExpiration(token);
+
+        User user = oldToken.getUser();
+
+        refreshTokenRepository.delete(oldToken);
+
+        RefreshToken newToken = RefreshToken.builder()
+                .token(UUID.randomUUID().toString())
+                .expiryDate(Instant.now().plusMillis(refreshExpiration))
+                .user(user)
+                .build();
+
+        return refreshTokenRepository.save(newToken);
+    }
+
+}
