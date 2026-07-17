@@ -1,0 +1,44 @@
+package com.example.identityservice.controller;
+
+import com.example.identityservice.dto.RefreshTokenRequest;
+import com.example.identityservice.dto.RefreshTokenResponse;
+import com.example.identityservice.entity.RefreshToken;
+import com.example.identityservice.entity.User;
+import com.example.identityservice.security.JwtUtils;
+import com.example.identityservice.service.RefreshTokenService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final RefreshTokenService refreshTokenService;
+
+    private final JwtUtils jwtUtils;
+
+    @PostMapping("/refresh")
+    public ResponseEntity<RefreshTokenResponse> refreshToken(
+            @RequestBody RefreshTokenRequest request) {
+
+        RefreshToken refreshToken =
+                refreshTokenService.rotateToken(request.getRefreshToken());
+
+        User user = refreshToken.getUser();
+
+        String accessToken =
+                jwtUtils.generateAccessToken(user);
+
+        RefreshTokenResponse response =
+                RefreshTokenResponse.builder()
+                        .accessToken(accessToken)
+                        .refreshToken(refreshToken.getToken())
+                        .tokenType("Bearer")
+                        .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+}
